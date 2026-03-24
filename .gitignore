@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+
+# Environment variables
+.env
+.env.*
+
+# FastAPI / Uvicorn
+*.log
+
+# Pydantic / Settings cache
+*.env.json
+
+# IDEs
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# Node / React frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# uv (package manager)
+.uv/
+uv.lock
+
+# Bytecode cache
+**/__pycache__/
+
+# Build artifacts
+build/
+dist/
