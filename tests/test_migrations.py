@@ -72,50 +72,6 @@ async def test_user_role_enum_values():
     await engine.dispose()
 
 
-# @pytest.mark.asyncio
-# async def test_users_table_exists():
-#     """Verify users table was created with the correct columns."""
-#     engine = create_async_engine(settings.DATABASE_URL)
-    
-#     async with engine.connect() as conn:
-#         inspector = inspect(engine)
-#         await conn.run_sync(lambda sync_conn: None)  # Ensure connection is established
-        
-#         # Check table existence via raw SQL
-#         result = await conn.execute(
-#             text(
-#                 "SELECT EXISTS ("
-#                 "  SELECT 1 FROM information_schema.tables "
-#                 "  WHERE table_name = 'users'"
-#                 ")"
-#             )
-#         )
-#         table_exists = result.scalar()
-#         assert table_exists, "users table should exist"
-    
-#     await engine.dispose()
-# @pytest.mark.asyncio
-# async def test_users_table_exists():
-#     """Verify users table was created with the correct columns."""
-#     engine = create_async_engine(settings.DATABASE_URL)
-
-#     async with engine.connect() as conn:
-#         # SQLAlchemy requires inspection inside run_sync for async engines
-#         def do_inspect(sync_conn):
-#             return inspect(sync_conn)
-
-#         inspector = await conn.run_sync(do_inspect)
-
-#         # Check table exists
-#         tables = inspector.get_table_names()
-#         assert "users" in tables
-
-#         # Check columns
-#         columns = {col["name"] for col in inspector.get_columns("users")}
-#         expected = {"id", "email", "hashed_password", "role", "is_active", "created_at"}
-#         assert expected.issubset(columns)
-
-
 @pytest.mark.asyncio
 async def test_users_table_exists():
     engine = create_async_engine(settings.DATABASE_URL)

@@ -81,6 +81,9 @@ class Property(Base):
     owner_id: uuid.UUID = Column(
         UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="RESTRICT"), nullable=False, index=True
     )
+    manager_id: uuid.UUID | None = Column(
+        UUID(as_uuid=True), ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True, index=True
+    )
     name: str = Column(String(100), nullable=False)
     address: str = Column(Text, nullable=False)
     city: str = Column(String(100))
@@ -92,6 +95,7 @@ class Property(Base):
 
     # relationships
     owner = relationship("User", back_populates="owned_properties", foreign_keys=[owner_id])
+    manager = relationship("User", foreign_keys=[manager_id])
     units = relationship("Unit", back_populates="property", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
