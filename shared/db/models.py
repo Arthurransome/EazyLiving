@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, relationship
 
 from shared.db.enums import (
-    LeaseStatus, MaintenancePriority, MaintenanceStatus,
+    LeaseRequestStatus, LeaseStatus, MaintenancePriority, MaintenanceStatus,
     PaymentStatus, UserRole,
 )
 
@@ -126,6 +126,7 @@ class Unit(Base):
     square_feet: int = Column(Integer)
     monthly_rent: Decimal = Column(Numeric(10, 2), nullable=False)
     is_occupied: bool = Column(Boolean, nullable=False, default=False)
+    is_available: bool = Column(Boolean, nullable=False, default=True)
 
     # relationships
     property = relationship("Property", back_populates="units")
@@ -322,3 +323,52 @@ class Notification(Base):
 
     def __repr__(self) -> str:
         return f"<Notification {self.event_type} → user {self.user_id}>"
+
+
+# ---------------------------------------------------------------------------
+# lease_requests
+# ---------------------------------------------------------------------------
+class LeaseRequest(Base):
+    __tablename__ = "lease_requests"
+
+    request_id: uuid.UUID = Column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: uuid.UUID = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.user_id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    unit_id: uuid.UUID = Column(
+        UUID(as_uuid=True),
+        ForeignKey("units.unit_id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    message: str = Column(Text, nullable=True)
+    desired_move_in: date = Column(Date, nullable=False)
+    desired_move_out: date = Column(Date, nullable=False)
+    status: LeaseRequestStatus = Column(
+        Enum(LeaseRequestStatus, name="lease_request_status"),
+        nullable=False,
+        default=LeaseRequestStatus.PENDING,
+        index=True,
+    )
+    reviewed_by: uuid.UUID | None = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.user_id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    reviewed_at: datetime | None = Column(DateTime(timezone=True), nullable=True)
+    created_at: datetime = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    # relationships
+    tenant = relationship("User", foreign_keys=[tenant_id])
+    unit = relationship("Unit")
+    reviewer = relationship("User", foreign_keys=[reviewed_by])
+
+    def __repr__(self) -> str:
+        return f"<LeaseRequest {self.request_id} [{self.status}]>"

@@ -91,6 +91,7 @@ class UnitUpdate(BaseModel):
     bedrooms: int | None = None
     bathrooms: int | None = None
     square_feet: int | None = None
+    is_available: bool | None = None
 
 
 class UnitResponse(BaseModel):
@@ -102,6 +103,7 @@ class UnitResponse(BaseModel):
     square_feet: int | None
     monthly_rent: Decimal
     is_occupied: bool
+    is_available: bool = True
     active_lease_id: uuid.UUID | None = None
 
     model_config = {"from_attributes": True}

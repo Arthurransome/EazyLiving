@@ -141,16 +141,33 @@ async def test_tenant_sees_only_rented_property(async_client_with_db: AsyncClien
     assert "Other Prop" not in names
 
 
-async def test_manager_sees_all_properties(async_client_with_db: AsyncClient):
+async def test_manager_sees_only_assigned_properties(async_client_with_db: AsyncClient):
     owner_token = await _register_login(async_client_with_db, "mg_owner@proptest.com", "MG Owner", "owner")
     manager_token = await _register_login(async_client_with_db, "mg_mgr@proptest.com", "MG Manager", "manager")
+    admin_token = await _register_login(async_client_with_db, "mg_admin@proptest.com", "MG Admin", "admin")
 
-    await async_client_with_db.post("/api/v1/properties", headers=_h(owner_token), json={**_PROP, "name": "Mgr Visible"})
+    # Create two properties — manager will be assigned to only one
+    prop_assigned = await async_client_with_db.post("/api/v1/properties", headers=_h(owner_token), json={
+        **_PROP, "name": "Mgr Assigned",
+    })
+    await async_client_with_db.post("/api/v1/properties", headers=_h(owner_token), json={
+        **_PROP, "name": "Mgr Not Assigned",
+    })
+
+    prop_id = prop_assigned.json()["property_id"]
+    manager_id = (await async_client_with_db.get("/api/v1/users/me", headers=_h(manager_token))).json()["user_id"]
+
+    await async_client_with_db.put(
+        f"/api/v1/properties/{prop_id}/manager",
+        headers=_h(admin_token),
+        json={"manager_id": manager_id},
+    )
 
     res = await async_client_with_db.get("/api/v1/properties", headers=_h(manager_token))
     assert res.status_code == 200
     names = [p["name"] for p in res.json()]
-    assert "Mgr Visible" in names
+    assert "Mgr Assigned" in names
+    assert "Mgr Not Assigned" not in names
 
 
 # ---------------------------------------------------------------------------

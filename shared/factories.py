@@ -24,8 +24,8 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from shared.db.enums import LeaseStatus, MaintenancePriority, MaintenanceStatus, PaymentStatus, UserRole
-from shared.db.models import Lease, MaintenanceRequest, Notification, Payment, Property, Unit, User
+from shared.db.enums import LeaseRequestStatus, LeaseStatus, MaintenancePriority, MaintenanceStatus, PaymentStatus, UserRole
+from shared.db.models import Lease, LeaseRequest, MaintenanceRequest, Notification, Payment, Property, Unit, User
 
 
 class UserFactory:
@@ -170,6 +170,29 @@ class NotificationFactory:
             event_type=event_type,
             message=message,
             is_read=False,
+        )
+
+
+class LeaseRequestFactory:
+    """Creates :class:`~shared.db.models.LeaseRequest` instances."""
+
+    @staticmethod
+    def create(
+        *,
+        tenant_id: uuid.UUID,
+        unit_id: uuid.UUID,
+        desired_move_in: date,
+        desired_move_out: date,
+        message: str | None = None,
+    ) -> LeaseRequest:
+        return LeaseRequest(
+            request_id=uuid.uuid4(),
+            tenant_id=tenant_id,
+            unit_id=unit_id,
+            desired_move_in=desired_move_in,
+            desired_move_out=desired_move_out,
+            message=message,
+            status=LeaseRequestStatus.PENDING,
         )
 
 

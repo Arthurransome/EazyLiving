@@ -22,6 +22,9 @@ from services.maintenance_service.routers.maintenance_router import router as ma
 from services.notification_service.handlers import (
     on_lease_activated,
     on_lease_terminated,
+    on_lease_request_approved,
+    on_lease_request_created,
+    on_lease_request_rejected,
     on_maintenance_assigned,
     on_maintenance_completed,
     on_maintenance_created,
@@ -32,6 +35,7 @@ from services.notification_service.handlers import (
 )
 from services.notification_service.routers.notification_router import router as notification_router
 from services.payment_service.routers.payment_router import router as payment_router
+from services.property_service.routers.lease_request_router import router as lease_request_router
 from services.property_service.routers.lease_router import router as lease_router
 from services.property_service.routers.property_router import router as property_router
 from services.user_service.routers.user_router import router as user_router
@@ -88,6 +92,9 @@ async def startup() -> None:
     bus.subscribe("maintenance.created", on_maintenance_created)
     bus.subscribe("maintenance.assigned", on_maintenance_assigned)
     bus.subscribe("maintenance.completed", on_maintenance_completed)
+    bus.subscribe("lease_request.created", on_lease_request_created)
+    bus.subscribe("lease_request.approved", on_lease_request_approved)
+    bus.subscribe("lease_request.rejected", on_lease_request_rejected)
 
 
 # ---------------------------------------------------------------------------
@@ -98,6 +105,7 @@ API_PREFIX = "/api/v1"
 app.include_router(user_router, prefix=API_PREFIX, tags=["Auth & Users"])
 app.include_router(property_router, prefix=API_PREFIX, tags=["Properties & Units"])
 app.include_router(lease_router, prefix=API_PREFIX, tags=["Leases"])
+app.include_router(lease_request_router, prefix=API_PREFIX, tags=["Lease Requests"])
 app.include_router(payment_router, prefix=API_PREFIX, tags=["Payments"])
 app.include_router(maintenance_router, prefix=API_PREFIX, tags=["Maintenance"])
 app.include_router(notification_router, prefix=API_PREFIX, tags=["Notifications"])

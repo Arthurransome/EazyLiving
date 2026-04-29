@@ -14,6 +14,7 @@ from shared.db.database import get_db
 from shared.db.enums import UserRole
 from shared.db.models import User
 from shared.schemas.lease_schemas import LeaseResponse
+from shared.schemas.user_schemas import UserResponse
 from shared.schemas.property_schemas import (
     AssignManagerRequest,
     PropertyCreate,
@@ -109,6 +110,19 @@ async def assign_manager(
     return await svc.assign_manager(property_id, data.manager_id)
 
 
+@router.get(
+    "/properties/{property_id}/tenants",
+    response_model=list[UserResponse],
+    summary="List active tenants in a property (admin/owner/assigned manager)",
+)
+async def list_tenants_for_property(
+    property_id: uuid.UUID,
+    svc: Annotated[PropertyService, Depends(_prop_svc)],
+    current_user: Annotated[User, Depends(require_role(UserRole.ADMIN, UserRole.OWNER, UserRole.MANAGER))],
+) -> list[UserResponse]:
+    return await svc.list_tenants_by_property(property_id, current_user)
+
+
 @router.delete(
     "/properties/{property_id}",
     status_code=204,
@@ -181,6 +195,20 @@ async def list_leases_for_unit(
     _: Annotated[User, Depends(get_current_user)],
 ) -> list[LeaseResponse]:
     return await svc.list_leases_by_unit(unit_id)
+
+
+@router.get(
+    "/units/available",
+    response_model=list[UnitResponse],
+    summary="List all available units across all properties (any authenticated user)",
+)
+async def list_available_units(
+    skip: int = 0,
+    limit: int = 100,
+    svc: Annotated[UnitService, Depends(_unit_svc)] = None,
+    _: Annotated[User, Depends(get_current_user)] = None,
+) -> list[UnitResponse]:
+    return await svc.list_available(skip=skip, limit=limit)
 
 
 @router.get(

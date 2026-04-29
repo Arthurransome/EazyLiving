@@ -132,3 +132,41 @@ async def on_maintenance_completed(event: Event) -> None:
         "maintenance.completed",
         f"Your maintenance request '{title}' has been completed.",
     )
+
+
+# ---------------------------------------------------------------------------
+# Lease-request events
+# ---------------------------------------------------------------------------
+
+async def on_lease_request_created(event: Event) -> None:
+    """Notify the property manager that a new lease request has arrived."""
+    manager_id_str = event.payload.get("manager_id")
+    if not manager_id_str:
+        return
+    manager_id = uuid.UUID(manager_id_str)
+    unit_number = event.payload.get("unit_number", "a unit")
+    await _save(
+        manager_id,
+        "lease_request.created",
+        f"A tenant has submitted a lease request for unit {unit_number}. Review it on your dashboard.",
+    )
+
+
+async def on_lease_request_approved(event: Event) -> None:
+    """Notify the tenant that their lease request was approved."""
+    tenant_id = uuid.UUID(event.payload["tenant_id"])
+    await _save(
+        tenant_id,
+        "lease_request.approved",
+        "Your lease request has been approved! Your lease is now active.",
+    )
+
+
+async def on_lease_request_rejected(event: Event) -> None:
+    """Notify the tenant that their lease request was rejected."""
+    tenant_id = uuid.UUID(event.payload["tenant_id"])
+    await _save(
+        tenant_id,
+        "lease_request.rejected",
+        "Your lease request was not approved at this time.",
+    )

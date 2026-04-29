@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.db.enums import LeaseStatus
-from shared.db.models import Lease
+from shared.db.models import Lease, Property, Unit
 from shared.repositories.base import AbstractRepository
 
 
@@ -37,6 +37,20 @@ class LeaseRepository(AbstractRepository[Lease]):
         result = await self._session.execute(
             select(Lease)
             .where(Lease.unit_id == unit_id)
+            .offset(skip)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def list_by_manager(
+        self, manager_id: uuid.UUID, *, skip: int = 0, limit: int = 100
+    ) -> list[Lease]:
+        """Return leases for units in properties managed by *manager_id*."""
+        result = await self._session.execute(
+            select(Lease)
+            .join(Unit, Lease.unit_id == Unit.unit_id)
+            .join(Property, Unit.property_id == Property.property_id)
+            .where(Property.manager_id == manager_id)
             .offset(skip)
             .limit(limit)
         )

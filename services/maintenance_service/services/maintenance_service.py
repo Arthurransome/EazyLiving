@@ -79,6 +79,8 @@ class MaintenanceService:
     ) -> list[MaintenanceRequestResponse]:
         if requester.role == UserRole.TENANT:
             reqs = await self._repo.list_by_tenant(requester.user_id, skip=skip, limit=limit)
+        elif requester.role == UserRole.MANAGER:
+            reqs = await self._repo.list_by_manager(requester.user_id, skip=skip, limit=limit)
         else:
             reqs = await self._repo.list(skip=skip, limit=limit)
         return [MaintenanceRequestResponse.model_validate(r) for r in reqs]

@@ -102,11 +102,30 @@ async def test_tenant_sees_only_own_requests(async_client_with_db: AsyncClient):
         assert req["tenant_id"] != t1_id
 
 
-async def test_manager_sees_all_requests(async_client_with_db: AsyncClient):
+async def test_manager_sees_requests_for_assigned_property(async_client_with_db: AsyncClient):
     owner_token = await _register_login(async_client_with_db, "ms_owner@mainttest.com", "MS Owner", "owner")
     tenant_token = await _register_login(async_client_with_db, "ms_tenant@mainttest.com", "MS Tenant", "tenant")
     manager_token = await _register_login(async_client_with_db, "ms_mgr@mainttest.com", "MS Manager", "manager")
-    unit_id = await _setup_unit(async_client_with_db, owner_token)
+
+    # Create property + unit, then assign the manager to that property
+    prop = await async_client_with_db.post("/api/v1/properties", headers=_h(owner_token), json={
+        "name": "MS Prop", "address": "1 MS St", "city": "Bristol", "state": "TN", "zip_code": "37620",
+    })
+    prop_id = prop.json()["property_id"]
+    unit = await async_client_with_db.post(f"/api/v1/properties/{prop_id}/units", headers=_h(owner_token), json={
+        "unit_number": "MS1", "monthly_rent": "1000.00", "bedrooms": 1, "bathrooms": 1, "square_feet": 600,
+    })
+    unit_id = unit.json()["unit_id"]
+    manager_id = await _get_user_id(async_client_with_db, manager_token)
+
+    # Assign manager to this property (requires admin — use owner token; actually owner can't, we need admin)
+    # Owner assigns manager via the assign endpoint (admin-only). Register an admin to do this.
+    admin_token = await _register_login(async_client_with_db, "ms_admin@mainttest.com", "MS Admin", "admin")
+    await async_client_with_db.put(
+        f"/api/v1/properties/{prop_id}/manager",
+        headers=_h(admin_token),
+        json={"manager_id": str(manager_id)},
+    )
 
     await _create_request(async_client_with_db, tenant_token, unit_id, "Manager visible request")
 
