@@ -1,13 +1,11 @@
 from pydantic_settings import BaseSettings
-import os
-from dotenv import load_dotenv
-
-settings = Settings()
 
 
 class Settings(BaseSettings):
     # postgres
     DATABASE_URL: str
+    # Optional separate DB for pytest. If unset, tests share the main DB.
+    TEST_DATABASE_URL: str = ""
 
     # dev vs prod
     DB_ECHO: bool = False

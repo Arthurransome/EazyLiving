@@ -40,3 +40,17 @@ uv.lock
 # Build artifacts
 build/
 dist/
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+*.cover
+.hypothesis/
+.tox/
+.nox/
+.cache/
+
+# Agents
+.agents/
