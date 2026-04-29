@@ -12,7 +12,7 @@ from services.user_service.repositories.user_repo import UserRepository
 from shared.db.models import User
 from shared.events import Event, EventBus
 from shared.factories import UserFactory
-from shared.schemas.user_schemas import Token, UserCreate, UserLogin, UserResponse
+from shared.schemas.user_schemas import Token, UserCreate, UserLogin, UserResponse, UserUpdate
 
 
 class UserService:
@@ -87,6 +87,37 @@ class UserService:
     # ------------------------------------------------------------------
     # Profile
     # ------------------------------------------------------------------
+
+    async def update_profile(
+        self, user_id: uuid.UUID, data: UserUpdate, requester: User
+    ) -> UserResponse:
+        from shared.db.enums import UserRole as _Role
+        if requester.role != _Role.ADMIN and requester.user_id != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+        user = await self._repo.get(user_id)
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+        if data.name is not None:
+            user.name = data.name
+        if data.email is not None:
+            existing = await self._repo.get_by_email(data.email)
+            if existing is not None and existing.user_id != user_id:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already in use")
+            user.email = data.email.lower().strip()
+        if data.password is not None:
+            user.password_hash = hash_password(data.password)
+        if data.is_active is not None and requester.role == _Role.ADMIN:
+            user.is_active = data.is_active
+
+        await self._repo._session.flush()
+        await self._repo._session.refresh(user)
+        return UserResponse.model_validate(user)
+
+    async def list_users(self, *, skip: int = 0, limit: int = 100) -> list[UserResponse]:
+        users = await self._repo.list(skip=skip, limit=limit)
+        return [UserResponse.model_validate(u) for u in users]
 
     async def get_profile(self, user_id: uuid.UUID) -> UserResponse:
         """Return the profile for *user_id*.

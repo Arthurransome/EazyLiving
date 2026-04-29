@@ -28,6 +28,11 @@ class AssignRequest(BaseModel):
     assigned_to: uuid.UUID
 
 
+class MaintenanceUpdateRequest(BaseModel):
+    event: str  # "assign" | "start" | "complete" | "close" | "cancel" | "escalate"
+    assigned_to: uuid.UUID | None = None
+
+
 class MaintenanceRequestResponse(BaseModel):
     request_id: uuid.UUID
     unit_id: uuid.UUID

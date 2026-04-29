@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from gateway.auth import get_current_user, require_role
@@ -18,6 +18,7 @@ from shared.schemas.maintenance_schemas import (
     AssignRequest,
     MaintenanceRequestCreate,
     MaintenanceRequestResponse,
+    MaintenanceUpdateRequest,
 )
 
 router = APIRouter()
@@ -66,6 +67,36 @@ async def get_request(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> MaintenanceRequestResponse:
     return await svc.get(request_id, current_user)
+
+
+@router.put(
+    "/maintenance-requests/{request_id}",
+    response_model=MaintenanceRequestResponse,
+    summary="Dispatch a state-machine event on a request (assign/start/complete/close/cancel/escalate)",
+)
+async def update_request(
+    request_id: uuid.UUID,
+    data: MaintenanceUpdateRequest,
+    svc: Annotated[MaintenanceService, Depends(_svc)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> MaintenanceRequestResponse:
+    match data.event:
+        case "assign":
+            if data.assigned_to is None:
+                raise HTTPException(status_code=422, detail="assigned_to is required for event 'assign'")
+            return await svc.assign(request_id, AssignRequest(assigned_to=data.assigned_to), current_user)
+        case "start":
+            return await svc.start(request_id, current_user)
+        case "complete":
+            return await svc.complete(request_id, current_user)
+        case "close":
+            return await svc.close(request_id, current_user)
+        case "cancel":
+            return await svc.cancel(request_id, current_user)
+        case "escalate":
+            return await svc.escalate(request_id, current_user)
+        case _:
+            raise HTTPException(status_code=422, detail=f"Unknown event '{data.event}'")
 
 
 @router.post(

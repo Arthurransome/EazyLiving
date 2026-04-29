@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from shared.db.enums import LeaseStatus
 from shared.db.models import Lease, Property, Unit
 from shared.repositories.base import AbstractRepository
 
@@ -27,6 +28,17 @@ class PropertyRepository(AbstractRepository[Property]):
             .where(Property.owner_id == owner_id)
             .offset(skip)
             .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def list_by_tenant(self, tenant_id: uuid.UUID) -> list[Property]:
+        """Return distinct properties where *tenant_id* holds an active lease."""
+        result = await self._session.execute(
+            select(Property)
+            .join(Unit, Unit.property_id == Property.property_id)
+            .join(Lease, Lease.unit_id == Unit.unit_id)
+            .where(Lease.tenant_id == tenant_id, Lease.status == LeaseStatus.ACTIVE)
+            .distinct()
         )
         return list(result.scalars().all())
 

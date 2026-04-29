@@ -27,6 +27,8 @@ from services.notification_service.handlers import (
     on_maintenance_created,
     on_payment_created,
     on_payment_overdue,
+    on_payment_paid,
+    on_payment_partial,
 )
 from services.notification_service.routers.notification_router import router as notification_router
 from services.payment_service.routers.payment_router import router as payment_router
@@ -80,6 +82,8 @@ async def startup() -> None:
     bus.subscribe("lease.activated", on_lease_activated)
     bus.subscribe("lease.terminated", on_lease_terminated)
     bus.subscribe("payment.created", on_payment_created)
+    bus.subscribe("payment.paid", on_payment_paid)
+    bus.subscribe("payment.partial", on_payment_partial)
     bus.subscribe("payment.overdue", on_payment_overdue)
     bus.subscribe("maintenance.created", on_maintenance_created)
     bus.subscribe("maintenance.assigned", on_maintenance_assigned)

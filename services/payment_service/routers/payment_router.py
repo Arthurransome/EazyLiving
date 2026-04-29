@@ -18,6 +18,7 @@ from shared.schemas.payment_schemas import (
     MarkOverdueRequest,
     PaymentCreate,
     PaymentResponse,
+    ProcessPaymentRequest,
 )
 
 router = APIRouter()
@@ -68,6 +69,20 @@ async def get_payment(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> PaymentResponse:
     return await svc.get(payment_id, current_user)
+
+
+@router.post(
+    "/payments/{payment_id}/process",
+    response_model=PaymentResponse,
+    summary="Process a payment (tenant pays own bill; staff may pay any)",
+)
+async def process_payment(
+    payment_id: uuid.UUID,
+    data: ProcessPaymentRequest,
+    svc: Annotated[PaymentService, Depends(_svc)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> PaymentResponse:
+    return await svc.process(payment_id, data, current_user)
 
 
 @router.post(

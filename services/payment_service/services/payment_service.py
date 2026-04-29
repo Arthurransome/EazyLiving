@@ -19,6 +19,7 @@ from shared.schemas.payment_schemas import (
     MarkOverdueRequest,
     PaymentCreate,
     PaymentResponse,
+    ProcessPaymentRequest,
 )
 
 
@@ -88,6 +89,34 @@ class PaymentService:
     # ------------------------------------------------------------------
     # Status transitions
     # ------------------------------------------------------------------
+
+    async def process(
+        self, payment_id: uuid.UUID, data: ProcessPaymentRequest, requester: User
+    ) -> PaymentResponse:
+        """Tenant-facing payment action.  Marks the payment as PAID unless
+        ``simulate_failure`` is set, in which case a 402 is raised.
+        Tenants may only pay their own bills; staff may pay any."""
+        payment = await self._get_or_404(payment_id)
+        if requester.role == UserRole.TENANT and payment.tenant_id != requester.user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+        if data.simulate_failure:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail=f"Payment failed (simulated failure via method '{data.method}')",
+            )
+        if payment.status == PaymentStatus.PAID:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="Payment is already marked paid"
+            )
+        payment.status = PaymentStatus.PAID
+        payment.payment_date = datetime.now(timezone.utc)
+        await self._repo._session.flush()
+        await self._repo._session.refresh(payment)
+        await self._bus.publish(Event(
+            name="payment.paid",
+            payload={"payment_id": str(payment_id), "tenant_id": str(payment.tenant_id)},
+        ))
+        return PaymentResponse.model_validate(payment)
 
     async def mark_paid(self, payment_id: uuid.UUID, requester: User) -> PaymentResponse:
         self._assert_staff(requester)

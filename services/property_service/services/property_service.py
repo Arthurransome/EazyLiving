@@ -68,9 +68,18 @@ class PropertyService:
                 unit = await unit_repo.add(unit)
                 created_units.append(UnitResponse.model_validate(unit))
 
-        resp = PropertyWithUnitsResponse.model_validate(prop)
-        resp.units = created_units
-        return resp
+        return PropertyWithUnitsResponse(
+            property_id=prop.property_id,
+            owner_id=prop.owner_id,
+            manager_id=prop.manager_id,
+            name=prop.name,
+            address=prop.address,
+            city=prop.city,
+            state=prop.state,
+            zip_code=prop.zip_code,
+            created_at=prop.created_at,
+            units=created_units,
+        )
 
     # ------------------------------------------------------------------
     # Read
@@ -78,6 +87,17 @@ class PropertyService:
 
     async def list_all(self, *, skip: int = 0, limit: int = 100) -> list[PropertyResponse]:
         props = await self._repo.list(skip=skip, limit=limit)
+        return [PropertyResponse.model_validate(p) for p in props]
+
+    async def list_for_requester(
+        self, requester: User, *, skip: int = 0, limit: int = 100
+    ) -> list[PropertyResponse]:
+        if requester.role == UserRole.TENANT:
+            props = await self._repo.list_by_tenant(requester.user_id)
+        elif requester.role == UserRole.OWNER:
+            props = await self._repo.list_by_owner(requester.user_id, skip=skip, limit=limit)
+        else:
+            props = await self._repo.list(skip=skip, limit=limit)
         return [PropertyResponse.model_validate(p) for p in props]
 
     async def list_by_owner(

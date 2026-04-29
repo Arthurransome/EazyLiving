@@ -22,7 +22,7 @@ from shared.schemas.analytics_schemas import (
 
 router = APIRouter()
 
-_staff = Depends(require_role(UserRole.ADMIN, UserRole.MANAGER))
+_staff = Depends(require_role(UserRole.ADMIN, UserRole.MANAGER, UserRole.OWNER))
 
 
 def _svc(db: Annotated[AsyncSession, Depends(get_db)]) -> AnalyticsService:

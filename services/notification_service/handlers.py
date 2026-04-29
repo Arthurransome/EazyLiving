@@ -75,6 +75,18 @@ async def on_payment_created(event: Event) -> None:
     )
 
 
+async def on_payment_paid(event: Event) -> None:
+    """Notify the tenant that their payment was received."""
+    tenant_id = uuid.UUID(event.payload["tenant_id"])
+    await _save(tenant_id, "payment.paid", "Your rent payment has been received. Thank you!")
+
+
+async def on_payment_partial(event: Event) -> None:
+    """Notify the tenant that their partial payment has been recorded."""
+    tenant_id = uuid.UUID(event.payload["tenant_id"])
+    await _save(tenant_id, "payment.partial", "Your partial rent payment has been recorded.")
+
+
 async def on_payment_overdue(event: Event) -> None:
     """Alert the tenant that a payment is overdue."""
     tenant_id = uuid.UUID(event.payload["tenant_id"])

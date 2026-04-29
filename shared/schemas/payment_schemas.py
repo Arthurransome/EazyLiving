@@ -26,6 +26,11 @@ class PaymentCreate(BaseModel):
         return v
 
 
+class ProcessPaymentRequest(BaseModel):
+    method: str  # "credit_card" | "bank_transfer" | "balance" — informational
+    simulate_failure: bool = False
+
+
 class MarkOverdueRequest(BaseModel):
     late_fee: Decimal = Decimal("0.00")
 

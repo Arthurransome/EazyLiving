@@ -55,7 +55,7 @@ async def test_all_enum_types_exist():
 async def test_user_role_enum_values():
     """Verify user_role enum has correct values."""
     engine = create_async_engine(settings.DATABASE_URL)
-    expected_values = {"admin", "manager", "owner", "tenant"}
+    expected_values = {"ADMIN", "MANAGER", "OWNER", "TENANT"}
     
     async with engine.connect() as conn:
         result = await conn.execute(

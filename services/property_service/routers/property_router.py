@@ -57,15 +57,15 @@ async def create_property(
 @router.get(
     "/properties",
     response_model=list[PropertyResponse],
-    summary="List all properties",
+    summary="List properties (owners see own; tenants see rented; staff see all)",
 )
 async def list_properties(
     skip: int = 0,
     limit: int = 100,
     svc: Annotated[PropertyService, Depends(_prop_svc)] = None,
-    _: Annotated[User, Depends(get_current_user)] = None,
+    current_user: Annotated[User, Depends(get_current_user)] = None,
 ) -> list[PropertyResponse]:
-    return await svc.list_all(skip=skip, limit=limit)
+    return await svc.list_for_requester(current_user, skip=skip, limit=limit)
 
 
 @router.get(
