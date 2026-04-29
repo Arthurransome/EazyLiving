@@ -1,106 +1,99 @@
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom"
-import { Building2, LogOut } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Outlet, useLocation } from "react-router-dom"
+import { Menu } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 import { useAuth } from "@/contexts/AuthContext"
-import { cn } from "@/lib/utils"
+import {
+  Sidebar,
+  SidebarBrand,
+  SidebarNav,
+} from "@/components/layout/Sidebar"
+import { NotificationsBell } from "@/components/layout/NotificationsBell"
+import { UserMenu } from "@/components/layout/UserMenu"
+import { findNavLabel, ROLE_LABEL } from "@/components/layout/nav-config"
 
 /**
- * Temporary authenticated shell.
+ * Authenticated layout shell.
  *
- * Lays out a topbar with a role-filtered nav + the current user + sign out.
- * Replaced by the full sidebar version in Task #5.
+ * Layout:
+ *   ┌──────────────┬──────────────────────────────┐
+ *   │              │ topbar (mobile menu, page    │
+ *   │   sidebar    │   title, bell, user menu)    │
+ *   │ (md and up)  ├──────────────────────────────┤
+ *   │              │ <Outlet />                   │
+ *   └──────────────┴──────────────────────────────┘
+ *
+ * On mobile (<md) the sidebar is hidden; the hamburger button opens
+ * the same nav inside a left-anchored Sheet.
  */
-
-const NAV_BY_ROLE = {
-  tenant: [
-    { to: "/tenant/dashboard", label: "Dashboard" },
-    { to: "/tenant/lease", label: "My Lease" },
-    { to: "/tenant/payments", label: "Payments" },
-    { to: "/tenant/maintenance", label: "Maintenance" },
-    { to: "/notifications", label: "Notifications" },
-  ],
-  manager: [
-    { to: "/manager/dashboard", label: "Dashboard" },
-    { to: "/manager/properties", label: "Properties" },
-    { to: "/manager/maintenance", label: "Maintenance" },
-    { to: "/notifications", label: "Notifications" },
-  ],
-  owner: [
-    { to: "/owner/dashboard", label: "Dashboard" },
-    { to: "/owner/properties", label: "Portfolio" },
-    { to: "/notifications", label: "Notifications" },
-  ],
-  admin: [
-    { to: "/manager/dashboard", label: "Dashboard" },
-    { to: "/manager/properties", label: "Properties" },
-    { to: "/manager/maintenance", label: "Maintenance" },
-    { to: "/notifications", label: "Notifications" },
-  ],
-}
-
 export function AppShell() {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
-  const navItems = NAV_BY_ROLE[user?.role] || []
+  const { user } = useAuth()
+  const location = useLocation()
+  const [mobileOpen, setMobileOpen] = useState(false)
 
-  async function handleSignOut() {
-    await logout()
-    navigate("/login", { replace: true })
-  }
+  // Close the mobile drawer whenever the route changes.
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [location.pathname])
+
+  const role = user?.role
+  const pageTitle = findNavLabel(role, location.pathname) || "EazyLiving"
 
   return (
-    <div className="min-h-screen flex flex-col bg-muted/40">
-      <header className="border-b bg-background sticky top-0 z-10">
-        <div className="flex h-14 items-center gap-6 px-6">
-          <Link to="/" className="flex items-center gap-2 font-semibold">
-            <div className="size-7 rounded-md bg-primary grid place-items-center text-primary-foreground">
-              <Building2 className="size-4" />
+    <div className="min-h-screen bg-muted/40">
+      <div className="flex min-h-screen">
+        <Sidebar role={role} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b bg-background px-4 sm:px-6">
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="md:hidden"
+                  aria-label="Open navigation"
+                >
+                  <Menu />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-72 p-0">
+                <SheetTitle className="sr-only">Navigation</SheetTitle>
+                <div className="flex h-14 items-center border-b px-4">
+                  <SidebarBrand onNavigate={() => setMobileOpen(false)} />
+                </div>
+                <div className="p-3">
+                  <SidebarNav
+                    role={role}
+                    onNavigate={() => setMobileOpen(false)}
+                  />
+                </div>
+              </SheetContent>
+            </Sheet>
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-base font-semibold">{pageTitle}</h1>
+              {role && (
+                <p className="hidden text-xs text-muted-foreground sm:block">
+                  {ROLE_LABEL[role] || role} workspace
+                </p>
+              )}
             </div>
-            EazyLiving
-          </Link>
-          <nav className="flex items-center gap-1 text-sm overflow-x-auto">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  cn(
-                    "px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors whitespace-nowrap",
-                    isActive && "bg-accent text-foreground",
-                  )
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-          <div className="ml-auto flex items-center gap-3">
-            {user && (
-              <Link
-                to="/profile"
-                className="flex items-center gap-2 text-sm hover:bg-accent rounded-md px-2 py-1 transition-colors"
-              >
-                <div className="size-7 rounded-full bg-primary/10 text-primary grid place-items-center text-xs font-semibold">
-                  {(user.name || user.email).slice(0, 1).toUpperCase()}
-                </div>
-                <div className="leading-tight text-left">
-                  <div className="font-medium">{user.name}</div>
-                  <div className="text-xs text-muted-foreground capitalize">
-                    {user.role}
-                  </div>
-                </div>
-              </Link>
-            )}
-            <Button variant="ghost" size="sm" onClick={handleSignOut}>
-              <LogOut /> Sign out
-            </Button>
-          </div>
+            <div className="flex items-center gap-1 sm:gap-2">
+              <NotificationsBell />
+              <UserMenu />
+            </div>
+          </header>
+          <main className="flex-1">
+            <Outlet />
+          </main>
         </div>
-      </header>
-      <main className="flex-1">
-        <Outlet />
-      </main>
+      </div>
     </div>
   )
 }

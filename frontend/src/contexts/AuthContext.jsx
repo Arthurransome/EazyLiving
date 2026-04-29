@@ -72,9 +72,17 @@ export function AuthProvider({ children }) {
     setStatus(STATUS.UNAUTHENTICATED)
   }, [])
 
+  // Re-pull the current user from the API. Used after a profile edit so
+  // the topbar / sidebar pick up the new name + email immediately.
+  const refreshUser = useCallback(async () => {
+    const me = await authApi.me()
+    setUser(me)
+    return me
+  }, [])
+
   const value = useMemo(
-    () => ({ user, status, login, register, logout }),
-    [user, status, login, register, logout],
+    () => ({ user, status, login, register, logout, refreshUser }),
+    [user, status, login, register, logout, refreshUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
