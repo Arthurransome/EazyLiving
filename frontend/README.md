@@ -166,3 +166,5 @@ This SPA assumes the API is mounted at `/api/v1` (the gateway path). In dev, MSW
 There are no React component tests in this preview build — the verification path for the UI is the smoke harness (`npm run mocks:smoke`), which exercises the full contract the UI relies on. If a UI flow breaks because of a contract drift, the smoke suite will catch it before the screen does.
 
 Backend integration tests live under `../tests/` and are the domain of the FastAPI side of the project.
+
+
