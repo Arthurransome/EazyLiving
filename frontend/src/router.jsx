@@ -11,9 +11,12 @@ import TenantDashboard from "@/pages/tenant/TenantDashboard"
 import TenantLease from "@/pages/tenant/TenantLease"
 import TenantPayments from "@/pages/tenant/TenantPayments"
 import TenantMaintenance from "@/pages/tenant/TenantMaintenance"
+import TenantMaintenanceNew from "@/pages/tenant/TenantMaintenanceNew"
+import TenantMaintenanceDetail from "@/pages/tenant/TenantMaintenanceDetail"
 
 import ManagerDashboard from "@/pages/manager/ManagerDashboard"
 import ManagerProperties from "@/pages/manager/ManagerProperties"
+import ManagerPropertyDetail from "@/pages/manager/ManagerPropertyDetail"
 import ManagerMaintenance from "@/pages/manager/ManagerMaintenance"
 
 import OwnerDashboard from "@/pages/owner/OwnerDashboard"
@@ -68,6 +71,11 @@ export function AppRouter() {
             <Route path="lease" element={<TenantLease />} />
             <Route path="payments" element={<TenantPayments />} />
             <Route path="maintenance" element={<TenantMaintenance />} />
+            <Route path="maintenance/new" element={<TenantMaintenanceNew />} />
+            <Route
+              path="maintenance/:id"
+              element={<TenantMaintenanceDetail />}
+            />
           </Route>
         </Route>
       </Route>
@@ -78,6 +86,10 @@ export function AppRouter() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<ManagerDashboard />} />
             <Route path="properties" element={<ManagerProperties />} />
+            <Route
+              path="properties/:id"
+              element={<ManagerPropertyDetail />}
+            />
             <Route path="maintenance" element={<ManagerMaintenance />} />
           </Route>
         </Route>
