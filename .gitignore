@@ -21,6 +21,8 @@ venv/
 # IDEs
 .vscode/
 .idea/
+.claude/
+.agents/
 
 # macOS
 .DS_Store
