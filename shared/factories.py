@@ -24,8 +24,8 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from shared.db.enums import LeaseStatus, UserRole
-from shared.db.models import Lease, Property, Unit, User
+from shared.db.enums import LeaseRequestStatus, LeaseStatus, MaintenancePriority, MaintenanceStatus, PaymentStatus, UserRole
+from shared.db.models import Lease, LeaseRequest, MaintenanceRequest, Notification, Payment, Property, Unit, User
 
 
 class UserFactory:
@@ -100,6 +100,99 @@ class UnitFactory:
             bathrooms=bathrooms,
             square_feet=square_feet,
             is_occupied=False,
+        )
+
+
+class PaymentFactory:
+    """Creates :class:`~shared.db.models.Payment` instances."""
+
+    @staticmethod
+    def create(
+        *,
+        lease_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        amount: Decimal,
+        due_date: date,
+        notes: str | None = None,
+    ) -> Payment:
+        """Return a new (unsaved) Payment in PENDING status."""
+        return Payment(
+            payment_id=uuid.uuid4(),
+            lease_id=lease_id,
+            tenant_id=tenant_id,
+            amount=amount,
+            due_date=due_date,
+            notes=notes,
+            status=PaymentStatus.PENDING,
+            late_fee=Decimal("0.00"),
+        )
+
+
+class MaintenanceRequestFactory:
+    """Creates :class:`~shared.db.models.MaintenanceRequest` instances."""
+
+    @staticmethod
+    def create(
+        *,
+        unit_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        title: str,
+        description: str | None = None,
+        priority: MaintenancePriority = MaintenancePriority.MEDIUM,
+    ) -> MaintenanceRequest:
+        """Return a new (unsaved) MaintenanceRequest in SUBMITTED status."""
+        return MaintenanceRequest(
+            request_id=uuid.uuid4(),
+            unit_id=unit_id,
+            tenant_id=tenant_id,
+            title=title.strip(),
+            description=description,
+            priority=priority,
+            status=MaintenanceStatus.SUBMITTED,
+            escalated=False,
+        )
+
+
+class NotificationFactory:
+    """Creates :class:`~shared.db.models.Notification` instances."""
+
+    @staticmethod
+    def create(
+        *,
+        user_id: uuid.UUID,
+        event_type: str,
+        message: str,
+    ) -> Notification:
+        """Return a new (unsaved) unread Notification."""
+        return Notification(
+            notification_id=uuid.uuid4(),
+            user_id=user_id,
+            event_type=event_type,
+            message=message,
+            is_read=False,
+        )
+
+
+class LeaseRequestFactory:
+    """Creates :class:`~shared.db.models.LeaseRequest` instances."""
+
+    @staticmethod
+    def create(
+        *,
+        tenant_id: uuid.UUID,
+        unit_id: uuid.UUID,
+        desired_move_in: date,
+        desired_move_out: date,
+        message: str | None = None,
+    ) -> LeaseRequest:
+        return LeaseRequest(
+            request_id=uuid.uuid4(),
+            tenant_id=tenant_id,
+            unit_id=unit_id,
+            desired_move_in=desired_move_in,
+            desired_move_out=desired_move_out,
+            message=message,
+            status=LeaseRequestStatus.PENDING,
         )
 
 

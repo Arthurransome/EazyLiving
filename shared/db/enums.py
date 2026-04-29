@@ -38,3 +38,9 @@ class MaintenancePriority(str, enum.Enum):
     MEDIUM = "medium"
     HIGH = "high"
     EMERGENCY = "emergency"
+
+
+class LeaseRequestStatus(str, enum.Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"

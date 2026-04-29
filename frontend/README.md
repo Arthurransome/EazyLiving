@@ -17,6 +17,25 @@ While the backend is being wired up, the frontend ships with a **complete in-bro
 
 ---
 
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+
+## Next Steps
+
+Page	Route	What it should do
+TenantDashboard	/tenant/dashboard	Current lease, next rent, notifications, open maintenance
+TenantLease	/tenant/lease	Lease details (unit, term, rent, deposit)
+TenantPayments	/tenant/payments	Payment history + pay rent dialog
+TenantMaintenance	/tenant/maintenance	Submit requests + status timeline
+ManagerDashboard	/manager/dashboard	KPIs + maintenance queue + recent payments
+ManagerProperties	/manager/properties	Property list + unit management + lease assignment
+ManagerMaintenance	/manager/maintenance	Cross-property queue + technician assignment
+OwnerDashboard	/owner/dashboard	Portfolio KPIs + revenue/occupancy charts
+OwnerProperties	/owner/properties	Read-only property drill-down
+NotificationsPage	/notifications	User notifications list
+ProfilePage	/profile	Edit name/email + change password
+
+A logical order would be: TenantDashboard → TenantPayments → TenantMaintenance → ManagerDashboard → OwnerDashboard, since those cover the most used flows first.
 ## Quick start
 
 ```bash
@@ -147,3 +166,5 @@ This SPA assumes the API is mounted at `/api/v1` (the gateway path). In dev, MSW
 There are no React component tests in this preview build — the verification path for the UI is the smoke harness (`npm run mocks:smoke`), which exercises the full contract the UI relies on. If a UI flow breaks because of a contract drift, the smoke suite will catch it before the screen does.
 
 Backend integration tests live under `../tests/` and are the domain of the FastAPI side of the project.
+
+

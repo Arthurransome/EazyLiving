@@ -15,7 +15,7 @@ from shared.db.database import get_db
 from shared.db.enums import UserRole
 from shared.db.models import User
 from shared.events import bus
-from shared.schemas.user_schemas import Token, UserCreate, UserLogin, UserResponse
+from shared.schemas.user_schemas import Token, UserCreate, UserLogin, UserResponse, UserUpdate
 
 router = APIRouter()
 
@@ -90,6 +90,20 @@ async def login_form(
 # ---------------------------------------------------------------------------
 
 @router.get(
+    "/users",
+    response_model=list[UserResponse],
+    summary="List all users (owner/manager/admin only)",
+)
+async def list_users(
+    skip: int = 0,
+    limit: int = 100,
+    svc: Annotated[UserService, Depends(_user_service)] = None,
+    _: Annotated[User, Depends(require_role(UserRole.OWNER, UserRole.MANAGER, UserRole.ADMIN))] = None,
+) -> list[UserResponse]:
+    return await svc.list_users(skip=skip, limit=limit)
+
+
+@router.get(
     "/users/me",
     response_model=UserResponse,
     summary="Get the currently authenticated user's profile",
@@ -98,6 +112,20 @@ async def get_me(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> UserResponse:
     return UserResponse.model_validate(current_user)
+
+
+@router.put(
+    "/users/{user_id}",
+    response_model=UserResponse,
+    summary="Update a user profile (self or admin only)",
+)
+async def update_user(
+    user_id: uuid.UUID,
+    data: UserUpdate,
+    svc: Annotated[UserService, Depends(_user_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> UserResponse:
+    return await svc.update_profile(user_id, data, current_user)
 
 
 @router.get(

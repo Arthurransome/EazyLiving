@@ -26,6 +26,7 @@ from shared.schemas.property_schemas import (
     UnitResponse,
     UnitUpdate,
 )
+from shared.schemas.user_schemas import UserResponse
 
 
 class PropertyService:
@@ -68,9 +69,18 @@ class PropertyService:
                 unit = await unit_repo.add(unit)
                 created_units.append(UnitResponse.model_validate(unit))
 
-        resp = PropertyWithUnitsResponse.model_validate(prop)
-        resp.units = created_units
-        return resp
+        return PropertyWithUnitsResponse(
+            property_id=prop.property_id,
+            owner_id=prop.owner_id,
+            manager_id=prop.manager_id,
+            name=prop.name,
+            address=prop.address,
+            city=prop.city,
+            state=prop.state,
+            zip_code=prop.zip_code,
+            created_at=prop.created_at,
+            units=created_units,
+        )
 
     # ------------------------------------------------------------------
     # Read
@@ -78,6 +88,19 @@ class PropertyService:
 
     async def list_all(self, *, skip: int = 0, limit: int = 100) -> list[PropertyResponse]:
         props = await self._repo.list(skip=skip, limit=limit)
+        return [PropertyResponse.model_validate(p) for p in props]
+
+    async def list_for_requester(
+        self, requester: User, *, skip: int = 0, limit: int = 100
+    ) -> list[PropertyResponse]:
+        if requester.role == UserRole.TENANT:
+            props = await self._repo.list_by_tenant(requester.user_id)
+        elif requester.role == UserRole.OWNER:
+            props = await self._repo.list_by_owner(requester.user_id, skip=skip, limit=limit)
+        elif requester.role == UserRole.MANAGER:
+            props = await self._repo.list_by_manager(requester.user_id, skip=skip, limit=limit)
+        else:
+            props = await self._repo.list(skip=skip, limit=limit)
         return [PropertyResponse.model_validate(p) for p in props]
 
     async def list_by_owner(
@@ -91,6 +114,22 @@ class PropertyService:
         if prop is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found")
         return PropertyResponse.model_validate(prop)
+
+    async def list_tenants_by_property(
+        self, property_id: uuid.UUID, requester: User
+    ) -> list[UserResponse]:
+        prop = await self._repo.get(property_id)
+        if prop is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found")
+        if requester.role == UserRole.MANAGER and prop.manager_id != requester.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Managers can only view tenants of their assigned property",
+            )
+        if requester.role not in {UserRole.ADMIN, UserRole.MANAGER, UserRole.OWNER}:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+        tenants = await self._repo.list_tenants_by_property(property_id)
+        return [UserResponse.model_validate(t) for t in tenants]
 
     async def list_leases_by_property(self, property_id: uuid.UUID) -> list[LeaseResponse]:
         prop = await self._repo.get(property_id)
@@ -236,6 +275,11 @@ class UnitService:
             resp.active_lease_id = active.lease_id if active else None
             results.append(resp)
         return results
+
+    async def list_available(self, *, skip: int = 0, limit: int = 100) -> list[UnitResponse]:
+        """Return all available units across all properties."""
+        units = await self._unit_repo.list_all_available(skip=skip, limit=limit)
+        return [UnitResponse.model_validate(u) for u in units]
 
     async def get(self, unit_id: uuid.UUID) -> UnitResponse:
         unit = await self._unit_repo.get(unit_id)

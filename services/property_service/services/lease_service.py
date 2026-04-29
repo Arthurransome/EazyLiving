@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.property_service.repositories.lease_repo import LeaseRepository
-from services.property_service.repositories.property_repo import UnitRepository
+from services.property_service.repositories.property_repo import PropertyRepository, UnitRepository
 from shared.db.enums import LeaseStatus, UserRole
 from shared.db.models import Lease, Unit, User
 from shared.events import Event, EventBus
@@ -31,6 +31,7 @@ class LeaseService:
     def __init__(self, db: AsyncSession, bus: EventBus) -> None:
         self._repo = LeaseRepository(db)
         self._unit_repo = UnitRepository(db)
+        self._prop_repo = PropertyRepository(db)
         self._bus = bus
 
     # ------------------------------------------------------------------
@@ -55,6 +56,14 @@ class LeaseService:
         unit: Unit | None = await self._unit_repo.get(data.unit_id)
         if unit is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found")
+
+        if requester.role == UserRole.MANAGER:
+            prop = await self._prop_repo.get(unit.property_id)
+            if prop is None or prop.manager_id != requester.user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Managers can only create leases for units in their assigned property",
+                )
 
         existing = await self._repo.get_active_lease(data.unit_id)
         if existing is not None:
@@ -92,6 +101,7 @@ class LeaseService:
         """
         self._assert_manager_or_admin(requester)
         lease = await self._get_or_404(lease_id)
+        await self._assert_manager_scope(lease, requester)
 
         if lease.status != LeaseStatus.DRAFT:
             raise HTTPException(
@@ -131,6 +141,7 @@ class LeaseService:
         """
         self._assert_manager_or_admin(requester)
         lease = await self._get_or_404(lease_id)
+        await self._assert_manager_scope(lease, requester)
 
         if lease.status != LeaseStatus.ACTIVE:
             raise HTTPException(
@@ -180,6 +191,8 @@ class LeaseService:
         """
         if requester.role == UserRole.TENANT:
             leases = await self._repo.list_by_tenant(requester.user_id, skip=skip, limit=limit)
+        elif requester.role == UserRole.MANAGER:
+            leases = await self._repo.list_by_manager(requester.user_id, skip=skip, limit=limit)
         else:
             leases = await self._repo.list(skip=skip, limit=limit)
         return [LeaseResponse.model_validate(l) for l in leases]
@@ -193,6 +206,20 @@ class LeaseService:
         if lease is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lease not found")
         return lease
+
+    async def _assert_manager_scope(self, lease: Lease, requester: User) -> None:
+        """Raise 403 if a manager tries to act on a lease outside their property."""
+        if requester.role != UserRole.MANAGER:
+            return
+        unit: Unit | None = await self._unit_repo.get(lease.unit_id)
+        if unit is None:
+            return
+        prop = await self._prop_repo.get(unit.property_id)
+        if prop is None or prop.manager_id != requester.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Managers can only manage leases in their assigned property",
+            )
 
     @staticmethod
     def _assert_manager_or_admin(requester: User) -> None:

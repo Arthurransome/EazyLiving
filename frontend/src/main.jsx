@@ -9,6 +9,7 @@ import { ToastProvider } from "@/contexts/ToastContext"
 
 async function enableMocking() {
   if (!import.meta.env.DEV) return
+  if (import.meta.env.VITE_USE_MOCKS !== 'true') return
   const { worker } = await import("./mocks/browser")
   // 'bypass' so requests we haven't mocked still hit the network (none do
   // right now, but it keeps the dev experience friendly when we add real
