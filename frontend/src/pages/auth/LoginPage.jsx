@@ -123,31 +123,6 @@ export default function LoginPage() {
             </CardFooter>
           </form>
         </Card>
-
-        {/* Demo affordance — handy for the class demo. Remove for production. */}
-        <Card className="bg-muted/40 border-dashed">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Demo accounts</CardTitle>
-            <CardDescription className="text-xs">
-              All seeded accounts share the password "password". Click to fill.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-2 pt-0">
-            {DEMO_ACCOUNTS.map((acct) => (
-              <Button
-                key={acct.email}
-                type="button"
-                variant="outline"
-                size="sm"
-                className="justify-between font-normal"
-                onClick={() => fillDemo(acct)}
-              >
-                <span className="font-medium">{acct.role}</span>
-                <span className="text-muted-foreground text-xs">{acct.email}</span>
-              </Button>
-            ))}
-          </CardContent>
-        </Card>
       </div>
     </div>
   )
