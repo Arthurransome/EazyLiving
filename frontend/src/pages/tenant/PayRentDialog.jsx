@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator"
 
 import { processPayment } from "@/api/payments"
 import { PAYMENT_STRATEGIES, getStrategy } from "@/lib/payment-strategies"
+import { useToast } from "@/contexts/ToastContext"
 import {
   formatCurrency,
   formatDate,
@@ -41,6 +42,7 @@ export function PayRentDialog({ open, payment, onOpenChange, onPaid }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
+  const toast = useToast()
 
   // Reset everything when the dialog re-opens for a different invoice.
   useEffect(() => {
@@ -71,8 +73,16 @@ export function PayRentDialog({ open, payment, onOpenChange, onPaid }) {
       })
       setSuccess(updated)
       onPaid?.(updated)
+      toast.success(
+        `Paid ${formatCurrency(total)}`,
+        `Receipt available for ${titleCase(methodId.replaceAll("_", " "))}.`,
+      )
     } catch (err) {
       setError(err)
+      toast.error(
+        "Payment failed",
+        err.message || "The processor declined this payment.",
+      )
     } finally {
       setSubmitting(false)
     }

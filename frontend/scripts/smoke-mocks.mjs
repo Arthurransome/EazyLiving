@@ -170,6 +170,128 @@ async function run() {
   })
   ok("tenant cannot create properties (403)", r.status === 403)
 
+  console.log("\nOwner scope")
+  r = await http("/properties", { headers: { Authorization: `Bearer ${ownerToken}` } })
+  ok(
+    "owner only sees their own properties",
+    r.status === 200 && r.data.length === 2 && r.data.every((p) => p.owner.email === "owner@eazy.com"),
+  )
+  r = await http("/payments", { headers: { Authorization: `Bearer ${ownerToken}` } })
+  ok(
+    "owner sees portfolio payments (filtered server-side)",
+    r.status === 200 && r.data.length > 0,
+  )
+  r = await http("/maintenance-requests", {
+    headers: { Authorization: `Bearer ${ownerToken}` },
+  })
+  ok(
+    "owner sees portfolio maintenance requests",
+    r.status === 200 && r.data.every((req) => req.property),
+  )
+
+  console.log("\nProfile editing")
+  // Each user can edit themselves; they cannot edit other users.
+  r = await http("/auth/me", { headers: { Authorization: `Bearer ${tToken}` } })
+  const tenantId = r.data.user_id
+  r = await http(`/users/${tenantId}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${tToken}` },
+    body: { phone: "+1-555-9999" },
+  })
+  ok(
+    "tenant can update their own profile",
+    r.status === 200 && r.data.phone === "+1-555-9999",
+  )
+  // Pick a different user id (the manager's) and try to edit it as the tenant.
+  const managerMe = await http("/auth/me", {
+    headers: { Authorization: `Bearer ${mToken}` },
+  })
+  r = await http(`/users/${managerMe.data.user_id}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${tToken}` },
+    body: { name: "Hacker McHackface" },
+  })
+  ok("tenant cannot edit other users (403)", r.status === 403)
+
+  console.log("\nProperty + unit creation")
+  r = await http("/properties", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${mToken}` },
+    body: {
+      name: "Smoke Test Plaza",
+      address: "1 Test Way",
+      city: "Toronto",
+      state: "ON",
+      zip_code: "M1M 1M1",
+      owner_id: owner.data.user.user_id,
+    },
+  })
+  ok(
+    "manager can create a property",
+    r.status === 201 && r.data.name === "Smoke Test Plaza",
+  )
+  const newPropId = r.data.property_id
+
+  r = await http(`/properties/${newPropId}/units`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${mToken}` },
+    body: { unit_number: "999", monthly_rent: "2000.00", bedrooms: 2 },
+  })
+  ok(
+    "manager can create a unit on the new property",
+    r.status === 201 && r.data.unit_number === "999",
+  )
+
+  r = await http(`/properties/${newPropId}/units`, {
+    headers: { Authorization: `Bearer ${mToken}` },
+  })
+  ok(
+    "newly created unit shows up in the property's unit list",
+    r.status === 200 && r.data.length === 1,
+  )
+
+  console.log("\nMaintenance reassignment + closure")
+  // Continue with the request we just transitioned to in_progress.
+  r = await http(`/maintenance-requests/${newReqId}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${mToken}` },
+    body: { event: "complete" },
+  })
+  ok(
+    "manager can complete (in_progress -> completed)",
+    r.status === 200 && r.data.status === "completed",
+  )
+  r = await http(`/maintenance-requests/${newReqId}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${mToken}` },
+    body: { event: "close" },
+  })
+  ok(
+    "manager can close (completed -> closed)",
+    r.status === 200 && r.data.status === "closed",
+  )
+  // Closed is terminal — further transitions should 409.
+  r = await http(`/maintenance-requests/${newReqId}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${mToken}` },
+    body: { event: "start" },
+  })
+  ok("closed requests can't be reopened (409)", r.status === 409)
+
+  console.log("\nMark-all-read + Notifications")
+  r = await http("/notifications/read-all", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${tToken}` },
+  })
+  ok("mark-all-read returns the count", r.status === 200 && typeof r.data.updated === "number")
+  r = await http("/notifications", {
+    headers: { Authorization: `Bearer ${tToken}` },
+  })
+  ok(
+    "all notifications are now read",
+    r.status === 200 && r.data.every((n) => n.is_read),
+  )
+
   console.log(`\n${pass} pass, ${fail} fail`)
   server.close()
   if (fail > 0) process.exit(1)

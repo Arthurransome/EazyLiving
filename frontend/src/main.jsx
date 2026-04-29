@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom"
 import "./index.css"
 import App from "./App.jsx"
 import { AuthProvider } from "@/contexts/AuthContext"
+import { ToastProvider } from "@/contexts/ToastContext"
 
 async function enableMocking() {
   if (!import.meta.env.DEV) return
@@ -23,7 +24,9 @@ enableMocking().then(() => {
     <StrictMode>
       <BrowserRouter>
         <AuthProvider>
-          <App />
+          <ToastProvider>
+            <App />
+          </ToastProvider>
         </AuthProvider>
       </BrowserRouter>
     </StrictMode>,

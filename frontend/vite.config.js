@@ -11,4 +11,10 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, './src'),
     },
   },
+  build: {
+    // The bundled app is ~950 KB pre-gzip, mostly Recharts + Radix. That's
+    // expected for a single-bundle SPA used as a class demo, so quiet the
+    // 500 KB advisory chunk-size warning.
+    chunkSizeWarningLimit: 1024,
+  },
 })

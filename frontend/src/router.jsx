@@ -18,6 +18,7 @@ import ManagerDashboard from "@/pages/manager/ManagerDashboard"
 import ManagerProperties from "@/pages/manager/ManagerProperties"
 import ManagerPropertyDetail from "@/pages/manager/ManagerPropertyDetail"
 import ManagerMaintenance from "@/pages/manager/ManagerMaintenance"
+import ManagerMaintenanceDetail from "@/pages/manager/ManagerMaintenanceDetail"
 
 import OwnerDashboard from "@/pages/owner/OwnerDashboard"
 import OwnerProperties from "@/pages/owner/OwnerProperties"
@@ -91,6 +92,10 @@ export function AppRouter() {
               element={<ManagerPropertyDetail />}
             />
             <Route path="maintenance" element={<ManagerMaintenance />} />
+            <Route
+              path="maintenance/:id"
+              element={<ManagerMaintenanceDetail />}
+            />
           </Route>
         </Route>
       </Route>
