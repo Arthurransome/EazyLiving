@@ -5,9 +5,14 @@ import {
   ArrowRight,
   Building2,
   CalendarDays,
+  CheckCircle2,
   Download,
+  FileSignature,
   FileText,
+  Hourglass,
+  Loader2,
   Mail,
+  PenLine,
   Phone,
   ReceiptText,
   ShieldCheck,
@@ -23,15 +28,20 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { PageHeader } from "@/components/shared/PageHeader"
 
-import { listLeases } from "@/api/leases"
+import { listLeases, signLease } from "@/api/leases"
 import { listPayments } from "@/api/payments"
+import { useAuth } from "@/contexts/AuthContext"
+import { useToast } from "@/contexts/ToastContext"
 import {
   formatCurrency,
   formatDate,
+  formatDateTime,
   daysFromNow,
   titleCase,
 } from "@/lib/format"
@@ -40,6 +50,7 @@ import { cn } from "@/lib/utils"
 const STATUS_BADGE = {
   active: "success",
   draft: "muted",
+  pending_tenant: "warning",
   expiring_soon: "warning",
   expired: "destructive",
   renewed: "info",
@@ -52,37 +63,77 @@ const STATUS_BADGE = {
  * to surface receipts.
  */
 export default function TenantLease() {
+  const { user } = useAuth()
+  const toast = useToast()
   const [lease, setLease] = useState(null)
   const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  // Sign-as-tenant form state, only used when lease.status === "pending_tenant".
+  const [signature, setSignature] = useState("")
+  const [agreed, setAgreed] = useState(false)
+  const [signing, setSigning] = useState(false)
+  const [signError, setSignError] = useState(null)
+
+  async function load() {
+    setLoading(true)
+    try {
+      const [leases, pays] = await Promise.all([
+        listLeases(),
+        listPayments(),
+      ])
+      // Priority: pending_tenant (action needed) > active > newest.
+      const pending = leases.find((l) => l.status === "pending_tenant")
+      const active = leases.find((l) => l.status === "active")
+      setLease(pending || active || leases[0] || null)
+      setPayments(pays)
+      setError(null)
+    } catch (err) {
+      setError(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    let cancelled = false
-    async function load() {
-      setLoading(true)
-      try {
-        const [leases, pays] = await Promise.all([
-          listLeases(),
-          listPayments(),
-        ])
-        if (cancelled) return
-        const active =
-          leases.find((l) => l.status === "active") || leases[0] || null
-        setLease(active)
-        setPayments(pays)
-        setError(null)
-      } catch (err) {
-        if (!cancelled) setError(err)
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
     load()
-    return () => {
-      cancelled = true
-    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Pre-fill signature with the tenant's name once the lease loads.
+  useEffect(() => {
+    if (lease?.status === "pending_tenant") {
+      setSignature((s) => s || user?.name || lease.tenant?.name || "")
+    }
+  }, [lease?.status, user?.name, lease?.tenant?.name])
+
+  async function handleSign(e) {
+    e.preventDefault()
+    if (!agreed || signature.trim().length < 2 || !lease) return
+    setSigning(true)
+    setSignError(null)
+    try {
+      const updated = await signLease(lease.lease_id, signature.trim())
+      setLease(updated)
+      toast.success(
+        "Lease activated",
+        "Your first rent invoice is now waiting for you in Payments.",
+      )
+      // Refresh payments so the new invoice appears in receipts.
+      try {
+        const pays = await listPayments()
+        setPayments(pays)
+      } catch {
+        // Non-fatal; stale payments is okay.
+      }
+    } catch (err) {
+      setSignError(err)
+      toast.error("Couldn't sign", err.message || "Try again.")
+    } finally {
+      setSigning(false)
+    }
+  }
 
   const termInfo = useMemo(() => {
     if (!lease) return null
@@ -127,6 +178,19 @@ export default function TenantLease() {
       )}
 
       {!loading && !lease && !error && <NoLeaseCard />}
+
+      {lease?.status === "pending_tenant" && (
+        <SignAsTenantCard
+          lease={lease}
+          signature={signature}
+          setSignature={setSignature}
+          agreed={agreed}
+          setAgreed={setAgreed}
+          signing={signing}
+          signError={signError}
+          onSign={handleSign}
+        />
+      )}
 
       {(loading || lease) && (
         <>
@@ -498,6 +562,182 @@ function NoLeaseCard() {
         </p>
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * Hero card shown when the manager has counter-signed a lease and we're
+ * waiting on the tenant. Surfaces the full terms + signature blocks side
+ * by side and lets the tenant sign on the spot.
+ */
+function SignAsTenantCard({
+  lease,
+  signature,
+  setSignature,
+  agreed,
+  setAgreed,
+  signing,
+  signError,
+  onSign,
+}) {
+  return (
+    <Card className="border-amber-300">
+      <CardHeader className="bg-amber-50/60">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-amber-900">
+              <FileSignature className="size-5" />
+              Sign your lease
+            </CardTitle>
+            <CardDescription className="text-amber-900/80">
+              {lease.manager?.name || "Your manager"} has signed. Once you
+              add your signature, the lease becomes active and your first
+              rent invoice is generated.
+            </CardDescription>
+          </div>
+          <Badge variant="warning" className="gap-1">
+            <Hourglass className="size-3" />
+            Awaiting your signature
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-5 pt-5">
+        <div className="grid gap-4 md:grid-cols-2 md:gap-6">
+          <KV
+            label="Property"
+            value={`${lease.property?.name || "—"} • Unit ${lease.unit?.unit_number || "—"}`}
+          />
+          <KV
+            label="Term"
+            value={`${formatDate(lease.start_date)} → ${formatDate(lease.end_date)}`}
+          />
+          <KV
+            label="Monthly rent"
+            value={formatCurrency(lease.monthly_rent)}
+          />
+          <KV
+            label="Security deposit"
+            value={formatCurrency(lease.security_deposit)}
+          />
+        </div>
+
+        <div className="space-y-1">
+          <div className="text-xs uppercase tracking-wider text-muted-foreground">
+            Lease text
+          </div>
+          <pre className="max-h-60 overflow-auto whitespace-pre-wrap rounded-md border bg-muted/30 p-3 font-mono text-xs">
+            {lease.terms || "Standard 12-month residential lease."}
+          </pre>
+        </div>
+
+        <Separator />
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <SignatureBlock
+            role="Manager"
+            name={lease.manager?.name}
+            signature={lease.manager_signature}
+            signedAt={lease.manager_signed_at}
+          />
+          <SignatureBlock
+            role="Tenant (you)"
+            name={lease.tenant?.name}
+            signature={lease.tenant_signature}
+            signedAt={lease.tenant_signed_at}
+            placeholder="Your signature will appear here."
+          />
+        </div>
+
+        <form onSubmit={onSign} className="space-y-4 rounded-md border bg-muted/30 p-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="ten-sig" className="flex items-center gap-1.5">
+              <PenLine className="size-3.5" /> Type your full legal name to sign
+            </Label>
+            <Input
+              id="ten-sig"
+              value={signature}
+              onChange={(e) => setSignature(e.target.value)}
+              placeholder="Your full name"
+              className="font-serif italic text-lg"
+            />
+          </div>
+          <label className="flex items-start gap-2 rounded-md border border-dashed bg-background p-3 text-sm">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+            />
+            <span>
+              <span className="font-medium">I agree</span> to the lease
+              terms above. I understand my typed name acts as my legal
+              signature and that activating this lease creates my first
+              rent invoice.
+            </span>
+          </label>
+          {signError && (
+            <Alert variant="destructive">
+              <AlertCircle className="size-4" />
+              <AlertTitle>Couldn&apos;t sign</AlertTitle>
+              <AlertDescription>
+                {signError.message || "Try again."}
+              </AlertDescription>
+            </Alert>
+          )}
+          <div className="flex justify-end">
+            <Button
+              type="submit"
+              disabled={!agreed || signature.trim().length < 2 || signing}
+            >
+              {signing ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
+              Sign &amp; activate lease
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
+
+function SignatureBlock({ role, name, signature, signedAt, placeholder }) {
+  const signed = !!signature
+  return (
+    <div
+      className={cn(
+        "rounded-md border p-4",
+        signed ? "border-emerald-200 bg-emerald-50/40" : "bg-background",
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <div className="text-xs uppercase tracking-wider text-muted-foreground">
+          {role}
+        </div>
+        {signed ? (
+          <Badge variant="success" className="gap-1">
+            <CheckCircle2 className="size-3" /> Signed
+          </Badge>
+        ) : (
+          <Badge variant="muted" className="gap-1">
+            <Hourglass className="size-3" /> Pending
+          </Badge>
+        )}
+      </div>
+      <div className="mt-3 min-h-12 border-b border-dashed pb-1">
+        {signed ? (
+          <span className="font-serif text-2xl italic text-foreground">
+            {signature}
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">
+            {placeholder || "(awaiting signature)"}
+          </span>
+        )}
+      </div>
+      <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
+        <span>{name || "—"}</span>
+        <span>{signed && signedAt ? formatDateTime(signedAt) : ""}</span>
+      </div>
+    </div>
   )
 }
 

@@ -3,11 +3,14 @@ import {
   Building2,
   ClipboardList,
   CreditCard,
+  FileSignature,
   Hammer,
+  Handshake,
   Home,
   KeyRound,
   LayoutDashboard,
   UserCircle,
+  Users,
   Wallet,
   Wrench,
 } from "lucide-react"
@@ -43,6 +46,8 @@ export const NAV_BY_ROLE = {
       items: [
         { to: "/manager/dashboard", label: "Dashboard", icon: LayoutDashboard },
         { to: "/manager/properties", label: "Properties", icon: Building2 },
+        { to: "/manager/offers", label: "Offers", icon: Handshake },
+        { to: "/manager/tenants", label: "Tenants", icon: Users },
         { to: "/manager/maintenance", label: "Maintenance", icon: Hammer },
       ],
     },
@@ -60,6 +65,7 @@ export const NAV_BY_ROLE = {
       items: [
         { to: "/owner/dashboard", label: "Dashboard", icon: LayoutDashboard },
         { to: "/owner/properties", label: "Properties", icon: Home },
+        { to: "/owner/offers", label: "Offers", icon: FileSignature },
       ],
     },
     {

@@ -73,7 +73,7 @@ async function run() {
 
   console.log("\nProperties")
   r = await http("/properties", { headers: { Authorization: `Bearer ${ownerToken}` } })
-  ok("owner sees their properties", r.status === 200 && r.data.length === 2)
+  ok("owner sees their properties", r.status === 200 && r.data.length === 3)
 
   r = await http("/properties", { headers: { Authorization: `Bearer ${tenantToken}` } })
   ok("tenant sees only their property", r.status === 200 && r.data.length === 1)
@@ -174,7 +174,7 @@ async function run() {
   r = await http("/properties", { headers: { Authorization: `Bearer ${ownerToken}` } })
   ok(
     "owner only sees their own properties",
-    r.status === 200 && r.data.length === 2 && r.data.every((p) => p.owner.email === "owner@eazy.com"),
+    r.status === 200 && r.data.length === 3 && r.data.every((p) => p.owner.email === "owner@eazy.com"),
   )
   r = await http("/payments", { headers: { Authorization: `Bearer ${ownerToken}` } })
   ok(
@@ -277,6 +277,260 @@ async function run() {
     body: { event: "start" },
   })
   ok("closed requests can't be reopened (409)", r.status === 409)
+
+  console.log("\nManager directory")
+  r = await http("/managers", { headers: { Authorization: `Bearer ${ownerToken}` } })
+  ok(
+    "owner can list managers with stats",
+    r.status === 200 &&
+      r.data.length >= 2 &&
+      r.data.every(
+        (m) =>
+          typeof m.rating === "number" &&
+          typeof m.active_properties === "number" &&
+          typeof m.starting_fee_percent === "number" &&
+          !!m.user,
+      ),
+  )
+
+  console.log("\nManagement offers")
+  // Owner creates a brand new property and sends a fresh offer to a manager.
+  let propRes = await http("/properties", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${ownerToken}` },
+    body: {
+      name: "Smoke Court",
+      address: "9 Smoke St",
+      city: "Toronto",
+      state: "ON",
+      zip_code: "M9M 9M9",
+    },
+  })
+  ok(
+    "owner can list a new property (manager_id null)",
+    propRes.status === 201 && propRes.data.manager_id === null,
+  )
+  const smokePropId = propRes.data.property_id
+
+  // Pick a manager to send the offer to (the technician/manager-2 user).
+  const managers = await http("/managers", {
+    headers: { Authorization: `Bearer ${ownerToken}` },
+  })
+  const targetMgr = managers.data.find(
+    (m) => m.user?.email === "tech@eazy.com",
+  )
+  ok("found target manager for offer", !!targetMgr)
+
+  r = await http("/management-offers", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${ownerToken}` },
+    body: {
+      property_id: smokePropId,
+      manager_id: targetMgr.manager_id,
+      proposed_message: "Smoke test offer",
+    },
+  })
+  ok(
+    "owner can create a pending offer",
+    r.status === 201 && r.data.status === "pending",
+  )
+  const smokeOfferId = r.data.offer_id
+
+  // Manager (tech@eazy.com) accepts.
+  const techLogin = await http("/auth/login", {
+    body: { email: "tech@eazy.com", password: "password" },
+  })
+  const techToken = techLogin.data.token
+
+  r = await http(`/management-offers/${smokeOfferId}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${techToken}` },
+    body: {
+      event: "accept",
+      management_fee_percent: 8.5,
+      onboarding_fee: "750.00",
+      signature: "Tariq Tech",
+    },
+  })
+  ok(
+    "manager can accept an offer with fee + signature",
+    r.status === 200 &&
+      r.data.status === "accepted" &&
+      r.data.management_fee_percent === 8.5 &&
+      r.data.manager_signature === "Tariq Tech",
+  )
+
+  // Property should now be assigned to that manager.
+  r = await http(`/properties/${smokePropId}`, {
+    headers: { Authorization: `Bearer ${ownerToken}` },
+  })
+  ok(
+    "accepted offer wires manager_id onto the property",
+    r.status === 200 && r.data.manager_id === targetMgr.manager_id,
+  )
+
+  // Owner can also decline a separate offer (cedar court is seeded pending to tech).
+  // Send another offer and have the manager decline it.
+  propRes = await http("/properties", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${ownerToken}` },
+    body: {
+      name: "Decline House",
+      address: "1 Decline Way",
+      city: "Toronto",
+      state: "ON",
+      zip_code: "M0M 0M0",
+    },
+  })
+  const declinePropId = propRes.data.property_id
+  r = await http("/management-offers", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${ownerToken}` },
+    body: {
+      property_id: declinePropId,
+      manager_id: targetMgr.manager_id,
+    },
+  })
+  const declineOfferId = r.data.offer_id
+  r = await http(`/management-offers/${declineOfferId}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${techToken}` },
+    body: { event: "decline", reason: "Out of bandwidth this quarter." },
+  })
+  ok(
+    "manager can decline an offer with a reason",
+    r.status === 200 &&
+      r.data.status === "declined" &&
+      r.data.decline_reason === "Out of bandwidth this quarter.",
+  )
+
+  console.log("\nTenant invite + lease signing flow")
+  // Manager invites a brand new tenant.
+  r = await http("/tenant-invites", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${techToken}` },
+    body: {
+      name: "Iris Invitee",
+      email: "iris.smoke@eazy.com",
+      phone: "555-1212",
+    },
+  })
+  ok(
+    "manager can invite a tenant (creates user + temp password)",
+    r.status === 201 &&
+      !!r.data.user &&
+      r.data.user.role === "tenant" &&
+      typeof r.data.temp_password === "string" &&
+      r.data.temp_password.length > 0,
+  )
+  const newTenantId = r.data.user.user_id
+  const tempPw = r.data.temp_password
+
+  // The new tenant can sign in with the temp password.
+  r = await http("/auth/login", {
+    body: { email: "iris.smoke@eazy.com", password: tempPw },
+  })
+  ok(
+    "invited tenant can log in with temp password",
+    r.status === 200 && r.data.user.user_id === newTenantId,
+  )
+  const irisToken = r.data.token
+
+  // Add a unit to the smoke property so the manager has somewhere to lease.
+  r = await http(`/properties/${smokePropId}/units`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${techToken}` },
+    body: { unit_number: "1A", monthly_rent: "1900.00", bedrooms: 1 },
+  })
+  ok("manager can add a unit to the new property", r.status === 201)
+  const smokeUnitId = r.data.unit_id
+
+  // Manager drafts a lease for Iris.
+  r = await http("/leases", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${techToken}` },
+    body: {
+      unit_id: smokeUnitId,
+      tenant_id: newTenantId,
+      start_date: "2026-05-01",
+      end_date: "2027-04-30",
+      monthly_rent: "1900.00",
+      security_deposit: "1900.00",
+      terms: "Standard 12-month residential lease.",
+      status: "draft",
+    },
+  })
+  ok(
+    "manager can draft a lease (status=draft)",
+    r.status === 201 && r.data.status === "draft" && !r.data.manager_signature,
+  )
+  const draftLeaseId = r.data.lease_id
+
+  // Manager signs (draft -> pending_tenant).
+  r = await http(`/leases/${draftLeaseId}/sign`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${techToken}` },
+    body: { signature: "Tariq Tech" },
+  })
+  ok(
+    "manager sign transitions draft -> pending_tenant",
+    r.status === 200 &&
+      r.data.status === "pending_tenant" &&
+      r.data.manager_signature === "Tariq Tech" &&
+      !!r.data.manager_signed_at,
+  )
+
+  // Manager cannot sign again from pending_tenant — must come from draft.
+  r = await http(`/leases/${draftLeaseId}/sign`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${techToken}` },
+    body: { signature: "Tariq Tech" },
+  })
+  ok(
+    "manager cannot re-sign a pending_tenant lease (409)",
+    r.status === 409,
+  )
+
+  // A different tenant cannot sign someone else's lease.
+  r = await http(`/leases/${draftLeaseId}/sign`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${tToken}` },
+    body: { signature: "Sneaky" },
+  })
+  ok("wrong tenant cannot sign a lease (403)", r.status === 403)
+
+  // Tenant signs (pending_tenant -> active) -> first invoice generated.
+  r = await http(`/leases/${draftLeaseId}/sign`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${irisToken}` },
+    body: { signature: "Iris Invitee" },
+  })
+  ok(
+    "tenant sign transitions pending_tenant -> active",
+    r.status === 200 &&
+      r.data.status === "active" &&
+      r.data.tenant_signature === "Iris Invitee" &&
+      !!r.data.tenant_signed_at,
+  )
+
+  // First rent invoice should now exist for the new tenant.
+  r = await http("/payments", {
+    headers: { Authorization: `Bearer ${irisToken}` },
+  })
+  ok(
+    "activating a lease creates the first pending invoice",
+    r.status === 200 &&
+      r.data.length >= 1 &&
+      r.data.some((p) => p.lease_id === draftLeaseId && p.status === "pending"),
+  )
+
+  // Empty signature should 422.
+  r = await http(`/leases/${draftLeaseId}/sign`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${techToken}` },
+    body: { signature: "" },
+  })
+  ok("empty signature rejected with 422", r.status === 422)
 
   console.log("\nMark-all-read + Notifications")
   r = await http("/notifications/read-all", {

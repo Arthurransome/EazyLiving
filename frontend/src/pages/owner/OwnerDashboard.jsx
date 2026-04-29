@@ -46,6 +46,7 @@ import { listProperties } from "@/api/properties"
 import { listLeases } from "@/api/leases"
 import { listPayments } from "@/api/payments"
 import { listMaintenance } from "@/api/maintenance"
+import { listOffers } from "@/api/offers"
 import { ACTIVE_STATUSES } from "@/lib/maintenance"
 import {
   formatCurrency,
@@ -105,6 +106,7 @@ export default function OwnerDashboard() {
     leases: [],
     payments: [],
     requests: [],
+    offers: [],
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -114,14 +116,15 @@ export default function OwnerDashboard() {
     async function load() {
       setLoading(true)
       try {
-        const [properties, leases, payments, requests] = await Promise.all([
+        const [properties, leases, payments, requests, offers] = await Promise.all([
           listProperties(),
           listLeases(),
           listPayments(),
           listMaintenance(),
+          listOffers().catch(() => []),
         ])
         if (cancelled) return
-        setData({ properties, leases, payments, requests })
+        setData({ properties, leases, payments, requests, offers })
         setError(null)
       } catch (err) {
         if (!cancelled) setError(err)
@@ -313,6 +316,34 @@ export default function OwnerDashboard() {
           </AlertDescription>
         </Alert>
       )}
+
+      {/* Pending management offers — only render when there's actually one */}
+      {(() => {
+        const pending = data.offers.filter((o) => o.status === "pending")
+        if (pending.length === 0) return null
+        return (
+          <Alert>
+            <AlertTriangle className="size-4" />
+            <AlertTitle>
+              {pending.length} management{" "}
+              {pending.length === 1 ? "offer is" : "offers are"} awaiting a manager&apos;s response
+            </AlertTitle>
+            <AlertDescription className="flex items-center justify-between gap-4">
+              <span>
+                {pending
+                  .map((o) => o.property?.name)
+                  .filter(Boolean)
+                  .join(", ")}
+              </span>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/owner/offers">
+                  Review offers <ArrowRight />
+                </Link>
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )
+      })()}
 
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

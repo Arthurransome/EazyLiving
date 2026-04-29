@@ -19,9 +19,13 @@ import ManagerProperties from "@/pages/manager/ManagerProperties"
 import ManagerPropertyDetail from "@/pages/manager/ManagerPropertyDetail"
 import ManagerMaintenance from "@/pages/manager/ManagerMaintenance"
 import ManagerMaintenanceDetail from "@/pages/manager/ManagerMaintenanceDetail"
+import ManagerOffers from "@/pages/manager/ManagerOffers"
+import ManagerTenants from "@/pages/manager/ManagerTenants"
+import ManagerLeaseDetail from "@/pages/manager/ManagerLeaseDetail"
 
 import OwnerDashboard from "@/pages/owner/OwnerDashboard"
 import OwnerProperties from "@/pages/owner/OwnerProperties"
+import OwnerOffers from "@/pages/owner/OwnerOffers"
 
 import NotificationsPage from "@/pages/shared/NotificationsPage"
 import ProfilePage from "@/pages/shared/ProfilePage"
@@ -91,6 +95,9 @@ export function AppRouter() {
               path="properties/:id"
               element={<ManagerPropertyDetail />}
             />
+            <Route path="offers" element={<ManagerOffers />} />
+            <Route path="tenants" element={<ManagerTenants />} />
+            <Route path="leases/:id" element={<ManagerLeaseDetail />} />
             <Route path="maintenance" element={<ManagerMaintenance />} />
             <Route
               path="maintenance/:id"
@@ -106,6 +113,7 @@ export function AppRouter() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<OwnerDashboard />} />
             <Route path="properties" element={<OwnerProperties />} />
+            <Route path="offers" element={<OwnerOffers />} />
           </Route>
         </Route>
       </Route>

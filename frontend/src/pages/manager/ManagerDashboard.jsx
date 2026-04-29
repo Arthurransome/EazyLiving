@@ -35,6 +35,7 @@ import { listProperties } from "@/api/properties"
 import { listLeases } from "@/api/leases"
 import { listPayments } from "@/api/payments"
 import { listMaintenance } from "@/api/maintenance"
+import { listOffers } from "@/api/offers"
 import { ACTIVE_STATUSES } from "@/lib/maintenance"
 import {
   formatCurrency,
@@ -54,6 +55,7 @@ export default function ManagerDashboard() {
     leases: [],
     payments: [],
     requests: [],
+    offers: [],
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -63,14 +65,15 @@ export default function ManagerDashboard() {
     async function load() {
       setLoading(true)
       try {
-        const [properties, leases, payments, requests] = await Promise.all([
+        const [properties, leases, payments, requests, offers] = await Promise.all([
           listProperties(),
           listLeases(),
           listPayments(),
           listMaintenance(),
+          listOffers().catch(() => []),
         ])
         if (cancelled) return
-        setData({ properties, leases, payments, requests })
+        setData({ properties, leases, payments, requests, offers })
         setError(null)
       } catch (err) {
         if (!cancelled) setError(err)
@@ -241,6 +244,35 @@ export default function ManagerDashboard() {
           loading={loading}
         />
       </div>
+
+      {/* Pending offers banner — shows the manager when an owner is waiting */}
+      {!loading &&
+        (() => {
+          const pending = (data.offers || []).filter(
+            (o) => o.status === "pending",
+          )
+          if (pending.length === 0) return null
+          return (
+            <Alert>
+              <AlertTriangle className="size-4" />
+              <AlertTitle>
+                {pending.length} management offer
+                {pending.length === 1 ? "" : "s"} waiting for your response
+              </AlertTitle>
+              <AlertDescription className="flex items-center justify-between gap-2">
+                <span>
+                  {pending
+                    .map((o) => o.property?.name)
+                    .filter(Boolean)
+                    .join(", ")}
+                </span>
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/manager/offers">Review offers</Link>
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )
+        })()}
 
       {/* Escalation banner */}
       {!loading && kpis.escalatedCount > 0 && (

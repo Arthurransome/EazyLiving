@@ -7,6 +7,7 @@ import {
   Building2,
   CalendarDays,
   CreditCard,
+  FileSignature,
   KeyRound,
   Wrench,
 } from "lucide-react"
@@ -104,6 +105,12 @@ export default function TenantDashboard() {
     return leases.find((l) => l.status === "active") || leases[0]
   }, [leases])
 
+  // A lease drafted by the manager that's waiting on the tenant's signature.
+  const pendingLease = useMemo(
+    () => leases.find((l) => l.status === "pending_tenant"),
+    [leases],
+  )
+
   // Next unpaid invoice — earliest due date among pending/overdue/partial.
   const nextDue = useMemo(() => {
     const open = payments
@@ -144,6 +151,27 @@ export default function TenantDashboard() {
           <AlertTitle>Couldn&apos;t load your dashboard</AlertTitle>
           <AlertDescription>
             {error.message || "Please try refreshing the page."}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {pendingLease && (
+        <Alert className="border-amber-300 bg-amber-50">
+          <FileSignature className="size-4 text-amber-700" />
+          <AlertTitle className="text-amber-900">
+            Your lease is ready to sign
+          </AlertTitle>
+          <AlertDescription className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-amber-900">
+              {pendingLease.property?.name || "Your manager"} signed the lease
+              for Unit {pendingLease.unit?.unit_number || "—"}. Add your
+              signature to activate it.
+            </span>
+            <Button asChild size="sm">
+              <Link to="/tenant/lease">
+                Review &amp; sign <ArrowRight />
+              </Link>
+            </Button>
           </AlertDescription>
         </Alert>
       )}

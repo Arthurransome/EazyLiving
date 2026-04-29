@@ -5,7 +5,10 @@ import {
   Building2,
   Home,
   MapPin,
+  Plus,
   Search,
+  UserCheck,
+  UserX,
 } from "lucide-react"
 
 import {
@@ -16,6 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { PageHeader } from "@/components/shared/PageHeader"
@@ -24,6 +28,7 @@ import { StatCard } from "@/components/shared/StatCard"
 import { listProperties } from "@/api/properties"
 import { listLeases } from "@/api/leases"
 import { formatCurrency, formatDate, daysFromNow } from "@/lib/format"
+import { OwnerAddPropertyDialog } from "./OwnerAddPropertyDialog"
 
 export default function OwnerProperties() {
   const [properties, setProperties] = useState([])
@@ -31,6 +36,8 @@ export default function OwnerProperties() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [query, setQuery] = useState("")
+  const [addOpen, setAddOpen] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -56,7 +63,7 @@ export default function OwnerProperties() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [reloadKey])
 
   const stats = useMemo(() => {
     const totalUnits = properties.reduce(
@@ -111,6 +118,17 @@ export default function OwnerProperties() {
         eyebrow="Owner"
         title="Portfolio"
         description="Every property you own, with occupancy and revenue at a glance."
+        actions={
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus /> List a property
+          </Button>
+        }
+      />
+
+      <OwnerAddPropertyDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        onCompleted={() => setReloadKey((k) => k + 1)}
       />
 
       {error && (
@@ -244,6 +262,32 @@ function PropertyCard({ property: p, leases }) {
         </Badge>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Manager assignment row */}
+        <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+          {p.manager ? (
+            <>
+              <UserCheck className="size-4 text-emerald-600 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs uppercase tracking-wide text-muted-foreground">
+                  Managed by
+                </div>
+                <div className="truncate font-medium">{p.manager.name}</div>
+              </div>
+              {p.management_fee_percent != null && (
+                <Badge variant="muted">{p.management_fee_percent}% fee</Badge>
+              )}
+            </>
+          ) : (
+            <>
+              <UserX className="size-4 text-amber-600 shrink-0" />
+              <div className="text-xs text-muted-foreground">
+                No manager assigned — check{" "}
+                <span className="font-medium">Offers</span> for status.
+              </div>
+            </>
+          )}
+        </div>
+
         <div className="grid grid-cols-3 gap-3 text-sm">
           <Stat label="Units" value={total} />
           <Stat label="Occupied" value={`${occupied}/${total}`} />
