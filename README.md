@@ -45,6 +45,8 @@ A full-stack property management platform built for **ETSU CSCI / AI-ML Spring 2
 └──────────┘  └────────────┘  └────────────┘
 ```
 
+![High-Level Design](my-docs/images/HLD.png)
+
 **Service layout inside the backend:**
 
 | Service | Responsibility |
@@ -199,6 +201,41 @@ To run the frontend without a backend using Mock Service Worker:
 
 ```bash
 VITE_USE_MOCKS=true npm run dev
+```
+
+---
+
+## Viewing the Docs
+
+The project includes a MkDocs documentation site covering the [User Guide](my-docs/docs/USER_GUIDE.md) and architecture diagrams.
+
+### Install MkDocs (first time only)
+
+```bash
+pip install mkdocs mkdocs-material
+```
+
+### Serve the docs locally
+
+Open a **third terminal** (backend on 8000, frontend on 5173, docs on 8080):
+
+```bash
+cd my-docs
+mkdocs serve
+```
+
+The docs site starts on **<http://localhost:8080>** — navigate to the URLs below for different sections.
+
+| URL | Description |
+| --- | --- |
+| <http://localhost:8080> | Home — overview, architecture diagrams |
+| <http://localhost:8080/USER_GUIDE> | Full user guide by role |
+
+### Build a static site
+
+```bash
+cd my-docs
+mkdocs build       # output in my-docs/site/
 ```
 
 ---
